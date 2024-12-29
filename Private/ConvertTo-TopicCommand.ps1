@@ -46,9 +46,6 @@ function ConvertTo-TopicCommand
             # Append only the necessary arguments without --create
             $kafka.args += " --partitions $Partitions --replication-factor $ReplicationFactor $Arguments"
 
-            # Initialize kafka.args as an empty string
-            $kafka.args = ''
-
             # Append SASL and security protocol arguments
             if ($env:KAFKA_SECURITY_PROTOCOL) {
                 Write-Verbose "Detected KAFKA_SECURITY_PROTOCOL: $($env:KAFKA_SECURITY_PROTOCOL)"
