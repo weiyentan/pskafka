@@ -23,13 +23,20 @@ function Get-KafkaTopics
 	
 	$kafka = ConvertTo-TopicCommand -BrokerList $BrokerList
 
-	[string[]]$output = & $kafka.path $kafka.args.Split(' ')
+    try {
+        $output = & $kafka.path $kafka.args.Split(' ')
+        if ($LASTEXITCODE -ne 0) {
+            throw "Command failed with exit code $LASTEXITCODE"
+        }
 
-	if ([System.IO.Path]::GetFileNameWithoutExtension($kafka.path) -eq 'kafkacat') {
-		$output = $output | Where-Object { $_ -match 'topic "(.+)"' } |
-					Select-Object @{Name='Matches';Expression= {$Matches[1]}} |
-					Select-Object -ExpandProperty Matches
-	}
+        if ([System.IO.Path]::GetFileNameWithoutExtension($kafka.path) -eq 'kafkacat') {
+            $output = $output | Where-Object { $_ -match 'topic "(.+)"' } |
+                        Select-Object @{Name='Matches';Expression= {$Matches[1]}} |
+                        Select-Object -ExpandProperty Matches
+        }
 
-	return @($output | Where-Object { -not $TopicName -or ($_ -like $TopicName) } | Sort-Object)
+        return @($output | Where-Object { -not $TopicName -or ($_ -like $TopicName) } | Sort-Object)
+    } catch {
+        Write-Error "Error executing Kafka command: $_"
+    }
 }
