@@ -32,7 +32,7 @@ Function Invoke-CommandLine
     $psExitCode = -1
     $OutVar = ""
     
-    Write-Host "Invoke-CommandLine: $CommandLine $Arguments" | Out-Null    
+    # Write-Host "Invoke-CommandLine: $CommandLine $Arguments" | Out-Null    
     try 
     {        
         $ps = new-object System.Diagnostics.Process
