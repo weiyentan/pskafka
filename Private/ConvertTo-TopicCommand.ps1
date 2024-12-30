@@ -1,94 +1,97 @@
-function ConvertTo-TopicCommand
-{
+. "c:/Users/weiye/pskafka/Private/AppendSecurityArgs.ps1"
+. "c:/Users/weiye/pskafka/Private/ExecuteKafkaCommand.ps1"
+
+function ConvertTo-TopicCommand {
     [cmdletbinding()]
     param(
         [Parameter(Mandatory=$true)]
         [string[]]$BrokerList,
+        
         [string]$Arguments,
-        [int]$Partitions,
-        [int]$ReplicationFactor
+        
+        [int]$Partitions = 1,  # Default value for partitions
+        [int]$ReplicationFactor = 1  # Default value for replication factor
     )
 
-    [pscustomobject]$kafka = [pscustomobject]@{'path'=$null;'args'=''}
+    Write-Debug "Starting ConvertTo-TopicCommand with BrokerList: $BrokerList"
+    Write-Verbose "Starting command conversion for the provided broker list."
 
-    $kafka.path = Get-KafkaHome
+    $kafka = [pscustomobject]@{
+        path = Get-KafkaHome
+        args = ''
+    }
 
-    [string]$kafkacat = [System.IO.Path]::Combine($kafka.path, 'kafkacat')
+    Write-Debug "Kafka home path retrieved: $($kafka.path)"
+    Write-Verbose "Kafka home path is set to: $($kafka.path)"
 
-    [bool]$is_win = $($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)
-
-    if ($is_win) {
+    # Determine the appropriate command executable
+    $kafkacat = [System.IO.Path]::Combine($kafka.path, 'kafkacat')
+    if ($IsWindows) {
         $kafkacat += '.exe'
     }
 
-    if (Test-Path $kafkacat) {
-        $kafka.path = $kafkacat
-        
-        # For listing topics with kafkacat
-        if (-not $Arguments -or -not ($Arguments -like "*--create*")) {
-            $kafka.args = "-b $($BrokerList -join ',') -L"
-        }
-        else {
-            # For creating topics
-            $kafka.args = "-b $($BrokerList -join ',')"
-            # Check if creating a topic
-            if ($Arguments -like "*--create*") {
-                # Extract the topic name from the arguments
-                if ($Arguments -match "--topic (\S+)") {
-                    $topicName = $matches[1]
-                    write-verbose "Topic name: $topicName"
-                    $kafka.args += " -t $topicName"  # Add the -t argument
-                    # Remove the --topic argument from the arguments
-                    $Arguments = $Arguments -replace "--topic \S+", ""
-                }
-            }
-
-            # Append only the necessary arguments without --create
-            $kafka.args += " --partitions $Partitions --replication-factor $ReplicationFactor $Arguments"
-
-            # Append SASL and security protocol arguments
-            if ($env:KAFKA_SECURITY_PROTOCOL) {
-                Write-Verbose "Detected KAFKA_SECURITY_PROTOCOL: $($env:KAFKA_SECURITY_PROTOCOL)"
-                $kafka.args += " -X security.protocol=$($env:KAFKA_SECURITY_PROTOCOL)"
-            }
-            if ($env:KAFKA_SASL_MECHANISM) {
-                Write-Verbose "Detected KAFKA_SASL_MECHANISM: $($env:KAFKA_SASL_MECHANISM)"
-                $kafka.args += " -X sasl.mechanism=$($env:KAFKA_SASL_MECHANISM)"
-            }
-            if ($env:KAFKA_SASL_USERNAME) {
-                Write-Verbose "Detected KAFKA_SASL_USERNAME: $($env:KAFKA_SASL_USERNAME)"
-                $kafka.args += " -X sasl.username=$($env:KAFKA_SASL_USERNAME)"
-            }
-            if ($env:KAFKA_SASL_PASSWORD) {
-                Write-Verbose "Detected KAFKA_SASL_PASSWORD: [REDACTED]"
-                $kafka.args += " -X sasl.password=$($env:KAFKA_SASL_PASSWORD)"
-            }
-
-            # Log the constructed arguments before execution
-            Write-Verbose "Constructed arguments: $($kafka.args)"
-        }
-    }
-    else {
-        if ($is_win) {
-            $kafka.path = [System.IO.Path]::Combine($kafka.path, 'bin', 'windows', 'kafka-topics.bat')
-        }
-        else {
-            $kafka.path = [System.IO.Path]::Combine($kafka.path, 'bin', 'kafka-topics.sh')
-        }
-
-        if (-not (Test-Path $kafka.path)) {
-            Write-Error -Exception $([System.IO.FileNotFoundException]::new($kafka.path))
-        }
-
-        $kafka.args = "--zookeeper $($BrokerList -join ',') --list"
+    if (-not (Test-Path $kafkacat)) {
+        Write-Error "Kafka command not found at path: $kafkacat"
+        return
     }
 
-    # Ensure there are no unintended spaces in the command construction
-    $kafka.args = $kafka.args.Trim()
+    $kafka.path = $kafkacat
 
-    # Log the complete command with all arguments
-    Write-Verbose "Full command to be executed: $($kafka.path) $($kafka.args)"
-    Write-Verbose "Executing command: $($kafka.path) $($kafka.args)"
+    # Construct command arguments based on the operation
+    if ($Arguments -like "*--list*") {
+        # Listing topics
+        $kafka.args = "-b $($BrokerList -join ',') -L"
+        Write-Debug "Listing topics with arguments: $kafka.args"
+    } elseif ($Arguments -like "*--create*") {
+        # Creating a new topic
+        $kafka.args = "-b $($BrokerList -join ',')"
+        Write-Debug "Creating topic with base arguments: $kafka.args"
 
-    return $kafka
+        if ($Arguments -match "--topic (\S+)") {
+            $topicName = $matches[1]
+            Write-Verbose "Topic name: $topicName"
+            $kafka.args += " -t $topicName"
+            Write-Debug "Appended topic name to arguments: $kafka.args"
+            $Arguments = $Arguments -replace "--topic \S+", ""
+            Write-Debug "Remaining arguments after topic extraction: $Arguments"
+        }
+
+        # Append partitions and replication factor
+        if ($Partitions -gt 0) {
+            $kafka.args += " --partitions $Partitions"
+            Write-Debug "Appended partitions: $Partitions"
+        } else {
+            Write-Debug "Partitions value is invalid: $Partitions"
+        }
+
+        if ($ReplicationFactor -gt 0) {
+            $kafka.args += " --replication-factor $ReplicationFactor"
+            Write-Debug "Appended replication factor: $ReplicationFactor"
+        } else {
+            Write-Debug "Replication factor value is invalid: $ReplicationFactor"
+        }
+
+        # Append any remaining arguments
+        if ($Arguments) {
+            $kafka.args += " $Arguments"
+            Write-Debug "Final arguments after appending remaining arguments: $kafka.args"
+        }
+    } else {
+        Write-Error "Invalid operation. Please specify either --list or --create."
+        return
+    }
+
+    # Append security arguments in both cases
+    Write-Debug "Arguments before appending security: $($kafka.args)"
+    $kafka_args = AppendSecurityArgs -KafkaArgs $kafka.args
+    Write-Debug "Arguments after appending security: $($kafka_args)"
+
+    # Log the final constructed arguments before executing the command
+    Write-Debug "Constructed arguments for execution: $($kafka_args)"
+
+    # Create and return the command object using New-Object
+    $commandObject = New-Object PSObject -Property @{ path = $kafka.path; args = $kafka_args }
+
+    Write-Debug "Constructed command object: $commandObject"
+    Write-Output $commandObject
 }
