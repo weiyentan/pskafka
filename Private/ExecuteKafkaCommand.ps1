@@ -7,7 +7,7 @@ function ExecuteKafkaCommand {
     Write-Debug "Executing command: $CommandPath with arguments: $CommandArgs"
 
     # Call the Invoke-CommandLine function to execute the Kafka command
-    $output = Invoke-CommandLine -CommandLine $CommandPath -Arguments $CommandArgs -ReturnStdOut
+    $output = Invoke-CommandLine -CommandLine $CommandPath -Arguments $CommandArgs -ReturnStdOut -waittime -1
 
     # Check the exit code
     if ($LASTEXITCODE -ne 0) {

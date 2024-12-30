@@ -1,0 +1,6 @@
+1. The programming language is PowerShell.
+2. Please do not use any other languages.
+3. When creating an object, please use the `New-Object` cmdlet.
+4. When creating a function, please use the `function` keyword.
+5. When creating a variable, please use the `$` prefix.
+6. When emitting output, please use the `Write-Output` cmdlet.
