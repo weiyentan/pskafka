@@ -49,3 +49,28 @@ if ($n_produced -eq $n_consumed) {
 else {
 	Write-Host 'Failed' -ForegroundColor Red
 }
+
+function Configure-NetworkManagerAndResolved {  
+    $symlinkPath = '/etc/resolv.conf'  
+    $targetPath = '/run/systemd/resolve/stub-resolv.conf'  
+    
+    # Check if the symlink exists  
+    if (!(Test-Path $symlinkPath)) {  
+        Write-Output "Creating symlink from $targetPath to $symlinkPath"  
+        New-Object -TypeName System.IO.FileInfo -ArgumentList $symlinkPath | ForEach-Object { $_.Delete() }  
+        cmd.exe /c mklink /Y $symlinkPath $targetPath  
+    } else {  
+        Write-Output "Symlink already exists at $symlinkPath"  
+    }  
+    
+    # Restart services  
+    Write-Output "Restarting systemd-resolved..."  
+    Start-Process -FilePath 'systemctl' -ArgumentList 'restart', 'systemd-resolved' -NoNewWindow -Wait  
+    Write-Output "Restarting NetworkManager..."  
+    Start-Process -FilePath 'systemctl' -ArgumentList 'restart', 'NetworkManager' -NoNewWindow -Wait  
+    Write-Output "Restarting tailscaled..."  
+    Start-Process -FilePath 'systemctl' -ArgumentList 'restart', 'tailscaled' -NoNewWindow -Wait  
+}  
+
+# Call the function  
+Configure-NetworkManagerAndResolved

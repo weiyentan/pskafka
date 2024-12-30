@@ -58,7 +58,7 @@ function Get-KafkaTopic
 						Topic = $topicName
 					}
 					
-					$topicDetail
+					write-output  $topicDetail
 				}
 			}
 		}

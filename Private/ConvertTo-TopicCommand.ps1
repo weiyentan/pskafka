@@ -1,5 +1,5 @@
-. "c:/Users/weiye/pskafka/Private/AppendSecurityArgs.ps1"
-. "c:/Users/weiye/pskafka/Private/ExecuteKafkaCommand.ps1"
+#. "c:/Users/weiye/pskafka/Private/AppendSecurityArgs.ps1"
+#. "c:/Users/weiye/pskafka/Private/ExecuteKafkaCommand.ps1"
 
 function ConvertTo-TopicCommand {
     [cmdletbinding()]
@@ -7,10 +7,7 @@ function ConvertTo-TopicCommand {
         [Parameter(Mandatory=$true)]
         [string[]]$BrokerList,
         
-        [string]$Arguments,
-        
-        [int]$Partitions = 1,  # Default value for partitions
-        [int]$ReplicationFactor = 1  # Default value for replication factor
+        [string]$Arguments
     )
 
     Write-Debug "Starting ConvertTo-TopicCommand with BrokerList: $BrokerList"
@@ -44,31 +41,16 @@ function ConvertTo-TopicCommand {
         Write-Debug "Listing topics with arguments: $kafka.args"
     } elseif ($Arguments -like "*--create*") {
         # Creating a new topic
-        $kafka.args = "-b $($BrokerList -join ',')"
+        $kafka.args = "-b $($BrokerList -join ',') -t"
         Write-Debug "Creating topic with base arguments: $kafka.args"
 
         if ($Arguments -match "--topic (\S+)") {
             $topicName = $matches[1]
             Write-Verbose "Topic name: $topicName"
-            $kafka.args += " -t $topicName"
+            $kafka.args += " $topicName"
             Write-Debug "Appended topic name to arguments: $kafka.args"
             $Arguments = $Arguments -replace "--topic \S+", ""
             Write-Debug "Remaining arguments after topic extraction: $Arguments"
-        }
-
-        # Append partitions and replication factor
-        if ($Partitions -gt 0) {
-            $kafka.args += " --partitions $Partitions"
-            Write-Debug "Appended partitions: $Partitions"
-        } else {
-            Write-Debug "Partitions value is invalid: $Partitions"
-        }
-
-        if ($ReplicationFactor -gt 0) {
-            $kafka.args += " --replication-factor $ReplicationFactor"
-            Write-Debug "Appended replication factor: $ReplicationFactor"
-        } else {
-            Write-Debug "Replication factor value is invalid: $ReplicationFactor"
         }
 
         # Append any remaining arguments

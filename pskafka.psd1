@@ -45,7 +45,7 @@
 	RequiredModules = @('ThreadJob')
 
 	# Assemblies that must be loaded prior to importing this module
-	# RequiredAssemblies = ''
+	RequiredAssemblies = @('.\dll\Confluent.Kafka.dll')
 
 	# Script files (.ps1) that are run in the caller's environment prior to importing this module.
 	# ScriptsToProcess = ''
@@ -60,7 +60,7 @@
 	# NestedModules = @()
 
 	# Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-	FunctionsToExport  = @('Get-KafkaTopic', 'New-KafkaTopic' , 'Start-KafkaProducer', 'Start-KafkaConsumer', 'Stop-KafkaProducer', 'Read-KafkaTopic', 'Set-KafkaHome', 'Send-Messages', 'Read-Job', 'Read-JobStreams', 'Out-KafkaTopic', 'Get-KafkaHome')
+	FunctionsToExport  = @('Get-KafkaTopic', 'New-KafkaTopic', 'Start-KafkaProducer', 'Start-KafkaConsumer', 'Stop-KafkaProducer', 'Read-KafkaTopic', 'Set-KafkaHome', 'Send-Messages', 'Read-Job', 'Read-JobStreams', 'Out-KafkaTopic', 'Get-KafkaHome')
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 	CmdletsToExport    = @()
