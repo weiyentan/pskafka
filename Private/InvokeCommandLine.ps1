@@ -53,7 +53,7 @@ Function Invoke-CommandLine
 
     }
     catch {
-        Write-Host "Invoke-CommandLine: Exception when running process. Details: $($_.Exception.Message)"  | Out-Null
+        Write-Error "Invoke-CommandLine: Exception when running process. Details: $($_.Exception.Message)"  | Out-Null
     }
 
     if($ReturnStdOut)
