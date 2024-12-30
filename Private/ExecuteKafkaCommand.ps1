@@ -6,18 +6,13 @@ function ExecuteKafkaCommand {
 
     Write-Debug "Executing command: $CommandPath with arguments: $CommandArgs"
 
-    # Execute the command
-    $process = Start-Process -FilePath $CommandPath -ArgumentList $CommandArgs -NoNewWindow -PassThru -Wait
-
-    # Capture the output
-    $output = $process.StandardOutput.ReadToEnd()
-    $errorOutput = $process.StandardError.ReadToEnd()
+    # Call the Invoke-CommandLine function to execute the Kafka command
+    $output = Invoke-CommandLine -CommandLine $CommandPath -Arguments $CommandArgs -ReturnStdOut
 
     # Check the exit code
-    if ($process.ExitCode -ne 0) {
-        Write-Error "Command failed with exit code: $($process.ExitCode)"
-        Write-Debug "Error output: $errorOutput"
-        throw "Command execution failed: $errorOutput"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Command failed with exit code: $LASTEXITCODE"
+        throw "Command execution failed"
     }
 
     Write-Debug "Command executed successfully. Output: $output"
