@@ -11,39 +11,47 @@ function Remove-KafkaTopic {
         [string]$Username,
 
         [Parameter(Mandatory = $false)]
-        [string]$Password,
+        [SecureString]$Password,
 
         [Parameter(Mandatory = $false)]
-        [string]$SecurityProtocol,
+        [ValidateSet('SaslPlaintext', 'Plaintext')]
+        [string]$SecurityProtocol = 'SaslPlaintext',
 
         [Parameter(Mandatory = $false)]
-        [string]$SaslMechanism,
+        [ValidateSet('Plain', 'ScramSha256', 'ScramSha512')]
+        [string]$SaslMechanism = 'Plain',
 
         [Parameter(Mandatory = $false)]
         [int]$TimeoutMs = 60000
     )
 
-    try {
-        # Create AdminClient using the helper function
-        $adminClient = Connect-Kafka -brokerlist $brokerlist -Username $Username -Password $Password -SecurityProtocol $SecurityProtocol -SaslMechanism $SaslMechanism
-
-        # Create a list of topic names
-        $topicNames = New-Object System.Collections.Generic.List[string]
-        $topicNames.Add($TopicName)
-
-        # Delete the topic
-        $result = $adminClient.DeleteTopicsAsync($topicNames).GetAwaiter().GetResult()
-        
-        Write-Output "Topic '$TopicName' deleted successfully."
+    begin {
+        if ($Username -and $Password) {
+            $credential = New-Object PSCredential($Username, $Password)
+        } else {
+            $credential = $null
+        }
     }
-    catch {
-        Write-Error "Failed to delete topic '$TopicName': $_"
-    }
-    finally {
-        # Dispose of the AdminClient
-        $adminClient.Dispose()
+
+    process {
+        try {
+            # Create AdminClient using the helper function
+            $adminClient = Connect-Kafka -brokerlist $brokerlist -Credential $credential -SecurityProtocol $SecurityProtocol -SaslMechanism $SaslMechanism
+
+            # Create a list of topic names
+            $topicNames = New-Object System.Collections.Generic.List[string]
+            $topicNames.Add($TopicName)
+
+            # Delete the topic
+            $result = $adminClient.DeleteTopicsAsync($topicNames).GetAwaiter().GetResult()
+            Write-Output "Topic deleted successfully: $TopicName"
+        }
+        catch {
+            Write-Output "An error occurred: $_"
+        }
+        finally {
+            # Dispose of the AdminClient
+            $adminClient.Dispose()
+        }
     }
 }
-
-# Example usage
-# Remove-KafkaTopic -brokerlist '192.168.1.107:9094,192.168.1.106:9094,192.168.1.108:9094' -TopicName 'code-releases'

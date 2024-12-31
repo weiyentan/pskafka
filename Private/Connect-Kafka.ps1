@@ -1,4 +1,4 @@
-function Connect-Kafka {
+    function Connect-Kafka {
     param (
         [string]$brokerlist,
         [string]$Username,
@@ -12,8 +12,8 @@ function Connect-Kafka {
     $adminConfig.BootstrapServers = $brokerlist
 
     if ($Username -and $Password) {
-        $adminConfig.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::SaslPlaintext
-        $adminConfig.SaslMechanism = [Confluent.Kafka.SaslMechanism]::Plain
+        $adminConfig.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::$SecurityProtocol
+        $adminConfig.SaslMechanism = [Confluent.Kafka.SaslMechanism]::$SaslMechanism
         $adminConfig.SaslUsername = $Username
         $adminConfig.SaslPassword = $Password
     } else {

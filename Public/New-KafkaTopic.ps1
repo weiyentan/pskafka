@@ -11,7 +11,7 @@ function New-KafkaTopic {
         [string]$Username,
 
         [Parameter(Mandatory = $false)]
-        [string]$Password,
+        [SecureString]$Password,
 
         [Parameter(Mandatory = $false)]
         [string]$SecurityProtocol,
@@ -49,7 +49,51 @@ function New-KafkaTopic {
         try {
             Write-Output "Creating AdminClient using the helper function"
             # Create AdminClient using the helper function
-            $adminClient = Connect-Kafka -brokerlist $brokerlist -Username $Username -Password $Password -SecurityProtocol $SecurityProtocol -SaslMechanism $SaslMechanism
+            # Define a hashtable for parameters
+            $finalhash = @{ 'brokerlist' = $brokerlist; 'SecurityProtocol' = $SecurityProtocol; 'SaslMechanism' = $SaslMechanism }
+
+            if ($PSBoundParameters['Username']) {
+                $Password = $PSBoundParameters['Password']
+                if ($Password -is [System.Security.SecureString]) {
+                    $PasswordHash = ConvertFrom-SecureString -SecureString $Password -asPlainText
+                } elseif ($Password -is [System.String]) {
+                    $PasswordHash = ConvertTo-SecureString -String $Password -AsPlainText -Force
+                } else {
+                    Write-Error "Invalid password type"
+                    throw "Invalid password type"
+                }
+                
+                # Add Username and Password to the hashtable
+                $finalhash['Username'] = $PSBoundParameters['Username']
+                $finalhash['Password'] = $PasswordHash
+            }
+
+            # Check for additional parameters and add them to the hashtable
+            if ($PSBoundParameters['SecurityProtocol']) {
+                $finalhash['SecurityProtocol'] = $PSBoundParameters['SecurityProtocol']
+            }
+            if ($PSBoundParameters['SaslMechanism']) {
+                $finalhash['SaslMechanism'] = $PSBoundParameters['SaslMechanism']
+            }
+            if ($PSBoundParameters['NumPartitions']) {
+                $finalhash['NumPartitions'] = $PSBoundParameters['NumPartitions']
+            }
+            if ($PSBoundParameters['ReplicationFactor']) {
+                $finalhash['ReplicationFactor'] = $PSBoundParameters['ReplicationFactor']
+            }
+            if ($PSBoundParameters['Config']) {
+                $finalhash['Config'] = $PSBoundParameters['Config']
+            }
+            if ($PSBoundParameters['TimeoutMs']) {
+                $finalhash['TimeoutMs'] = $PSBoundParameters['TimeoutMs']
+            }
+
+            try {
+                $adminClient = Connect-Kafka @finalhash
+            } catch {
+                Write-Error "Authentication failed: $_"
+                throw "Stopping connection attempts."
+            }
 
             Write-Output "Creating TopicSpecification"
             $topicSpecType = $confluentAssembly.GetType('Confluent.Kafka.Admin.TopicSpecification')
