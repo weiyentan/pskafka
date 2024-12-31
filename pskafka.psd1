@@ -60,7 +60,7 @@
 	# NestedModules = @()
 
 	# Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-	FunctionsToExport  = @('Get-KafkaTopic', 'New-KafkaTopic', 'Start-KafkaProducer', 'Start-KafkaConsumer', 'Stop-KafkaProducer', 'Read-KafkaTopic', 'Set-KafkaHome', 'Send-Messages', 'Read-Job', 'Read-JobStreams', 'Out-KafkaTopic', 'Get-KafkaHome')
+	FunctionsToExport  = @('Get-KafkaTopic', 'New-KafkaTopic', 'Remove-KafkaTopic' , 'Start-KafkaProducer', 'Start-KafkaConsumer', 'Stop-KafkaProducer', 'Read-KafkaTopic', 'Set-KafkaHome', 'Send-Messages', 'Read-Job', 'Read-JobStreams', 'Out-KafkaTopic', 'Get-KafkaHome')
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 	CmdletsToExport    = @()
@@ -101,6 +101,7 @@
 				'./Public/Get-KafkaHome.ps1',
 				'./Public/Get-KafkaTopic.ps1',
 				'./Public/New-KafkaTopic.ps1',
+				'./Public/Remove-KafkaTopic.ps1',
 				'./Public/Out-KafkaTopic.ps1',
 				'./Public/Read-Job.ps1',
 				'./Public/Read-JobStreams.ps1',

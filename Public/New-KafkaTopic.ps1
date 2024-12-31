@@ -14,6 +14,12 @@ function New-KafkaTopic {
         [string]$Password,
 
         [Parameter(Mandatory = $false)]
+        [string]$SecurityProtocol,
+
+        [Parameter(Mandatory = $false)]
+        [string]$SaslMechanism,
+
+        [Parameter(Mandatory = $false)]
         [int]$NumPartitions = 1,
 
         [Parameter(Mandatory = $false)]
@@ -41,42 +47,12 @@ function New-KafkaTopic {
 
     process {
         try {
-            Write-Output "Creating AdminClientConfig"
-            # Create AdminClientConfig with security settings
-            $adminConfig = New-Object Confluent.Kafka.AdminClientConfig
-            $adminConfig.BootstrapServers = $brokerlist
-
-            if ($Username -and $Password) {
-                $adminConfig.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::SaslPlaintext
-                $adminConfig.SaslMechanism = [Confluent.Kafka.SaslMechanism]::Plain
-                $adminConfig.SaslUsername = $Username
-                $adminConfig.SaslPassword = $Password
-            } else {
-                $adminConfig.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::Plaintext
-            }
-
-            Write-Output "AdminClientConfig created with BootstrapServers: $($adminConfig.BootstrapServers)"
-            Write-Output "Security Protocol: $($adminConfig.SecurityProtocol)"
-            if ($Username) {
-                Write-Output "SASL Mechanism: $($adminConfig.SaslMechanism)"
-            }
-
-            Write-Output "Creating AdminClientBuilder"
-            $builder = New-Object Confluent.Kafka.AdminClientBuilder($adminConfig)
-            $adminClient = $builder.Build()
-            Write-Output "AdminClient created successfully"
-
-            # Ensure the Confluent.Kafka assembly is loaded
-            $loadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
-            $kafkaAssembly = $loadedAssemblies | Where-Object { $_.GetName().Name -eq 'Confluent.Kafka' }
-
-            if (-not $kafkaAssembly) {
-                Write-Error "Confluent.Kafka assembly is not loaded."
-                throw "Confluent.Kafka assembly is not loaded."
-            }
+            Write-Output "Creating AdminClient using the helper function"
+            # Create AdminClient using the helper function
+            $adminClient = Connect-Kafka -brokerlist $brokerlist -Username $Username -Password $Password -SecurityProtocol $SecurityProtocol -SaslMechanism $SaslMechanism
 
             Write-Output "Creating TopicSpecification"
-            $topicSpecType = $kafkaAssembly.GetType('Confluent.Kafka.Admin.TopicSpecification')
+            $topicSpecType = $confluentAssembly.GetType('Confluent.Kafka.Admin.TopicSpecification')
             if (-not $topicSpecType) {
                 Write-Error "TopicSpecification type not found in assembly"
                 throw "TopicSpecification type not found in assembly"
@@ -109,3 +85,38 @@ function New-KafkaTopic {
         }
     }
 }
+
+function Remove-KafkaTopic {
+    param (
+        [string]$brokerlist,
+        [string]$TopicName
+    )
+
+    try {
+        # Create AdminClientConfig
+        $adminConfig = New-Object Confluent.Kafka.AdminClientConfig
+        $adminConfig.BootstrapServers = $brokerlist
+
+        # Create AdminClient
+        $adminClient = New-Object Confluent.Kafka.Admin.AdminClientBuilder($adminConfig).Build()
+
+        # Define the topic to delete
+        $topicSpec = New-Object Confluent.Kafka.Admin.TopicSpecification
+        $topicSpec.Name = $TopicName
+
+        # Delete the topic
+        $result = $adminClient.DeleteTopicsAsync(@($topicSpec)).GetAwaiter().GetResult()
+        
+        Write-Output "Topic '$TopicName' deleted successfully."
+    }
+    catch {
+        Write-Error "Failed to delete topic '$TopicName': $_"
+    }
+    finally {
+        # Dispose of the AdminClient
+        $adminClient.Dispose()
+    }
+}
+
+# Example usage
+# Remove-KafkaTopic -brokerlist '192.168.1.107:9094,192.168.1.106:9094,192.168.1.108:9094' -TopicName 'code-releases'
