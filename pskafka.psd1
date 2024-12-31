@@ -45,7 +45,7 @@
 	RequiredModules = @('ThreadJob')
 
 	# Assemblies that must be loaded prior to importing this module
-	RequiredAssemblies = @('.\dll\Confluent.Kafka.dll')
+	RequiredAssemblies = @('.\bin\win\Confluent.Kafka.dll')
 
 	# Script files (.ps1) that are run in the caller's environment prior to importing this module.
 	# ScriptsToProcess = ''

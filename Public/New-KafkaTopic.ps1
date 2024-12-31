@@ -1,127 +1,111 @@
 function New-KafkaTopic {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
+        [string]$brokerlist,
+
+        [Parameter(Mandatory = $true)]
         [string]$TopicName,
 
-        [Parameter()]
-        [string[]]$BrokerList = @('localhost:9092'),
+        [Parameter(Mandatory = $false)]
+        [string]$Username,
 
-        [Parameter()]
-        [int]$Partitions = 1,
+        [Parameter(Mandatory = $false)]
+        [string]$Password,
 
-        [Parameter()]
+        [Parameter(Mandatory = $false)]
+        [int]$NumPartitions = 1,
+
+        [Parameter(Mandatory = $false)]
         [int]$ReplicationFactor = 1,
 
-        [Parameter()]
-        [ValidateSet('PLAIN', 'SCRAM-SHA-256', 'SCRAM-SHA-512')]
-        [string]$SaslMechanism,
+        [Parameter(Mandatory = $false)]
+        [hashtable]$Config = @{},
 
-        [Parameter()]
-        [string]$SaslUsername,
-
-        [Parameter()]
-        [string]$SaslPassword,
-
-        [Parameter()]
-        [ValidateSet('Plaintext', 'Ssl', 'SaslPlaintext', 'SaslSsl')]
-        [string]$SecurityProtocol = 'Plaintext',
-
-        [Parameter()]
-        [string]$SslCaLocation,
-
-        [Parameter()]
-        [string]$SslCertificateLocation,
-
-        [Parameter()]
-        [string]$SslKeyLocation,
-
-        [Parameter()]
-        [string]$SslKeyPassword,
-
-        [Parameter()]
-        [bool]$EnableSslCertificateVerification = $true
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutMs = 60000
     )
 
-    try {
-        Write-Verbose "Creating new Kafka topic: $TopicName"
+    begin {
+        # Check if Confluent.Kafka assembly is loaded
+        $assemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+        $confluentAssembly = $assemblies | Where-Object { $_.GetName().Name -eq 'Confluent.Kafka' }
         
-        # Create a configuration object
-        $config = New-Object Confluent.Kafka.AdminClientConfig
-        $config.BootstrapServers = $BrokerList -join ','
-
-        # Configure Security Protocol
-        $config.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::$SecurityProtocol
-
-        # Configure SSL if certificates are provided
-        if ($SecurityProtocol -in @('Ssl', 'SaslSsl')) {
-            Write-Verbose "Configuring SSL settings"
-            
-            if ($SslCaLocation) {
-                Write-Verbose "Setting CA certificate location"
-                $config.SslCaLocation = $SslCaLocation
-            }
-
-            if ($SslCertificateLocation) {
-                Write-Verbose "Setting client certificate location"
-                $config.SslCertificateLocation = $SslCertificateLocation
-            }
-
-            if ($SslKeyLocation) {
-                Write-Verbose "Setting client key location"
-                $config.SslKeyLocation = $SslKeyLocation
-            }
-
-            if ($SslKeyPassword) {
-                Write-Verbose "Setting SSL key password"
-                $config.SslKeyPassword = $SslKeyPassword
-            }
-
-            $config.EnableSslCertificateVerification = $EnableSslCertificateVerification
+        if (-not $confluentAssembly) {
+            Write-Error "Confluent.Kafka assembly is not loaded"
+            throw "Confluent.Kafka assembly is not loaded"
         }
+        
+        Write-Output "Using Confluent.Kafka assembly version: $($confluentAssembly.GetName().Version)"
+    }
 
-        # Add SASL configuration if credentials are provided
-        if ($SecurityProtocol -in @('SaslPlaintext', 'SaslSsl')) {
-            if (-not ($SaslUsername -and $SaslPassword)) {
-                throw "SASL username and password are required when using SASL security protocol"
+    process {
+        try {
+            Write-Output "Creating AdminClientConfig"
+            # Create AdminClientConfig with security settings
+            $adminConfig = New-Object Confluent.Kafka.AdminClientConfig
+            $adminConfig.BootstrapServers = $brokerlist
+
+            if ($Username -and $Password) {
+                $adminConfig.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::SaslPlaintext
+                $adminConfig.SaslMechanism = [Confluent.Kafka.SaslMechanism]::Plain
+                $adminConfig.SaslUsername = $Username
+                $adminConfig.SaslPassword = $Password
+            } else {
+                $adminConfig.SecurityProtocol = [Confluent.Kafka.SecurityProtocol]::Plaintext
             }
 
-            Write-Verbose "Configuring SASL authentication"
-            
-            if ($SaslMechanism) {
-                $config.SaslMechanism = [Confluent.Kafka.SaslMechanism]::$SaslMechanism
-                $config.SaslUsername = $SaslUsername
-                $config.SaslPassword = $SaslPassword
+            Write-Output "AdminClientConfig created with BootstrapServers: $($adminConfig.BootstrapServers)"
+            Write-Output "Security Protocol: $($adminConfig.SecurityProtocol)"
+            if ($Username) {
+                Write-Output "SASL Mechanism: $($adminConfig.SaslMechanism)"
             }
-            else {
-                Write-Warning "SASL credentials provided but no mechanism specified. Defaulting to PLAIN"
-                $config.SaslMechanism = [Confluent.Kafka.SaslMechanism]::Plain
-                $config.SaslUsername = $SaslUsername
-                $config.SaslPassword = $SaslPassword
+
+            Write-Output "Creating AdminClientBuilder"
+            $builder = New-Object Confluent.Kafka.AdminClientBuilder($adminConfig)
+            $adminClient = $builder.Build()
+            Write-Output "AdminClient created successfully"
+
+            # Ensure the Confluent.Kafka assembly is loaded
+            $loadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+            $kafkaAssembly = $loadedAssemblies | Where-Object { $_.GetName().Name -eq 'Confluent.Kafka' }
+
+            if (-not $kafkaAssembly) {
+                Write-Error "Confluent.Kafka assembly is not loaded."
+                throw "Confluent.Kafka assembly is not loaded."
             }
+
+            Write-Output "Creating TopicSpecification"
+            $topicSpecType = $kafkaAssembly.GetType('Confluent.Kafka.Admin.TopicSpecification')
+            if (-not $topicSpecType) {
+                Write-Error "TopicSpecification type not found in assembly"
+                throw "TopicSpecification type not found in assembly"
+            }
+
+            $topicSpec = New-Object -TypeName $topicSpecType
+            $topicSpec.Name = $TopicName
+            $topicSpec.NumPartitions = $NumPartitions
+            $topicSpec.ReplicationFactor = $ReplicationFactor
+            Write-Output "TopicSpecification created: Name=$($topicSpec.Name), Partitions=$($topicSpec.NumPartitions), ReplicationFactor=$($topicSpec.ReplicationFactor)"
+
+            Write-Output "Creating topic..."
+            $topicSpecs = New-Object System.Collections.Generic.List[Confluent.Kafka.Admin.TopicSpecification]
+            $topicSpecs.Add($topicSpec)
+            $options = New-Object Confluent.Kafka.Admin.CreateTopicsOptions
+            $result = $adminClient.CreateTopicsAsync($topicSpecs, $options).GetAwaiter().GetResult()
+            Write-Output "Topic '$TopicName' created successfully"
         }
-
-        # Create the admin client
-        $adminClient = New-Object Confluent.Kafka.AdminClientBuilder($config)
-        $admin = $adminClient.Build()
-
-        # Create topic specification
-        $topicSpec = New-Object Confluent.Kafka.TopicSpecification
-        $topicSpec.Name = $TopicName
-        $topicSpec.NumPartitions = $Partitions
-        $topicSpec.ReplicationFactor = $ReplicationFactor
-
-        # Create the topic
-        $null = $admin.CreateTopicsAsync(@($topicSpec)).GetAwaiter().GetResult()
-
-        Write-Output "Topic '$TopicName' created successfully with $Partitions partitions and replication factor of $ReplicationFactor"
-    }
-    catch {
-        Write-Error "Failed to create topic: $_"
-    }
-    finally {
-        if ($admin) {
-            $admin.Dispose()
+        catch {
+            Write-Error "Failed to create topic: $_"
+            Write-Output "Exception details: $($_.Exception.GetType().FullName)"
+            Write-Output "Stack trace: $($_.Exception.StackTrace)"
+            throw
+        }
+        finally {
+            if ($adminClient) {
+                Write-Output "Disposing AdminClient"
+                $adminClient.Dispose()
+            }
         }
     }
 }
